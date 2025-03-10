@@ -19,7 +19,7 @@ A Python tool to search and delete emails in Gmail using the Gmail API.
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/yourusername/gmail-cleaner.git
+   git clone https://github.com/mackrus/gmail-cleaner.git
    cd gmail-cleaner
    ```
 
