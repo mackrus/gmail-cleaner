@@ -54,6 +54,10 @@ The following files are used:
 - `credentials.json`: OAuth 2.0 credentials (from Google Cloud Console)
 - `token.json`: Auto-generated authentication token
 
+## Authors
+
+Markus Bajlo [markusbajlo@gmail.com](email).
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or pull request.
