@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+venv/
+env/
+
+# Credentials
+credentials.json
+token.json
+
+# IDE
+.vscode/
+.idea/
+
+# Python-generated files
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# uv
+uv.lock
+
+#Oauth
+secret.json
+
+# random python stuff
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+scopetest.py
