@@ -39,3 +39,6 @@ secret.json
 *.pyw
 *.pyz
 scopetest.py
+
+# a new whietlist file will be generated
+whitelist.txt
