@@ -12,19 +12,25 @@ import argparse
 # If modifying these SCOPES, delete the token.json file
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify", "https://mail.google.com/"]
 
+# local constants
+CONFIG_DIR = os.path.expanduser("~/.gmail-cleaner")
+WHITELIST_FILE = os.path.join(CONFIG_DIR, "whitelist.txt")
+CREDENTIALS_JSON = os.path.join(CONFIG_DIR, "credentials.json")
+TOKEN_JSON = os.path.join(CONFIG_DIR, "token.json")
+
 
 def authenticate_gmail():
     """Authenticate and return Gmail API service."""
     creds = None
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    if os.path.exists(TOKEN_JSON):
+        creds = Credentials.from_authorized_user_file(TOKEN_JSON, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_JSON, SCOPES)
             creds = flow.run_local_server(port=0)
-        with open("token.json", "w") as token:
+        with open(TOKEN_JSON, "w") as token:
             token.write(creds.to_json())
     return build("gmail", "v1", credentials=creds)
 
@@ -69,8 +75,8 @@ def delete_emails(service, email_ids):
 
     # Confirmation prompt
     print(f"WARNING: About to delete {len(email_ids)} emails. This action cannot be undone.")
-    confirm = input("Type 'yes' to proceed, or any other key to cancel: ").strip().lower()
-    if confirm != "yes":
+    confirm = input("Type 'y' to proceed, or any other key to cancel: ").strip().lower()
+    if confirm != "y":
         print("Deletion cancelled.")
         return
 
@@ -200,8 +206,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--whitelist-file",
         type=str,
-        default="whitelist.txt",
-        help="Path to a text file containing whitelisted phrases, one per line (default: whitelist.txt)"
+        default=WHITELIST_FILE,
+        help="Path to a text file containing whitelisted phrases, one per line (default: ¨/.gmail-cleaner/whitelist.txt)"
     )
     parser.add_argument(
         "--add-whitelist",
