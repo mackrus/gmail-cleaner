@@ -11,6 +11,7 @@ env/
 # Credentials
 credentials.json
 token.json
+*.pickle
 
 # IDE
 .vscode/
