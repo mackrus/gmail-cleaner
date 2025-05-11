@@ -82,7 +82,7 @@ To use this tool, you need to set up Gmail API credentials:
 4. Create **OAuth 2.0 Client Credentials** and download the `credentials.json` file.
 5. Place `credentials.json` in `~/.gmail-cleaner`.
 
-For detailed instructions, see [OAUTH](OAUTH) and Google's Gmail API Quickstart.
+For detailed instructions, see [OAUTH](OAUTH.md) and Google's Gmail API Quickstart.
 
 
 ## Whitelist Feature

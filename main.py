@@ -1,244 +1,228 @@
-import os
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+import argparse
+import time
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-import time
-import argparse
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+import os
+import pickle
 
-# If modifying these SCOPES, delete the token.json file
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify", "https://mail.google.com/"]
+# If modifying these scopes, delete the file token.pickle.
+SCOPES = ["https://mail.google.com/"]
 
-# local constants
-CONFIG_DIR = os.path.expanduser("~/.gmail-cleaner")
-WHITELIST_FILE = os.path.join(CONFIG_DIR, "whitelist.txt")
-CREDENTIALS_JSON = os.path.join(CONFIG_DIR, "credentials.json")
-TOKEN_JSON = os.path.join(CONFIG_DIR, "token.json")
+# Constant for the label name
+LABEL_NAME = "to delete"
 
 
-def authenticate_gmail():
-    """Authenticate and return Gmail API service."""
+def get_gmail_service():
+    """Authenticate and return a Gmail API service instance."""
     creds = None
-    if os.path.exists(TOKEN_JSON):
-        creds = Credentials.from_authorized_user_file(TOKEN_JSON, SCOPES)
+    if os.path.exists("token.pickle"):
+        with open("token.pickle", "rb") as token:
+            creds = pickle.load(token)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_JSON, SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
-        with open(TOKEN_JSON, "w") as token:
-            token.write(creds.to_json())
+        with open("token.pickle", "wb") as token:
+            pickle.dump(creds, token)
     return build("gmail", "v1", credentials=creds)
 
 
-def search_emails(service, query):
-    """Search emails with pagination."""
-    emails = []
-    page_token = None
+def get_or_create_label(service, label_name):
+    """Get the ID of the label with the given name, or create it if it doesn't exist."""
+    labels = service.users().labels().list(userId="me").execute().get("labels", [])
+    for label in labels:
+        if label["name"].lower() == label_name.lower():
+            return label["id"]
+    # If not found, create it
+    print(f"Label '{label_name}' not found, creating it.")
+    new_label = (
+        service.users()
+        .labels()
+        .create(
+            userId="me",
+            body={
+                "name": label_name,
+                "labelListVisibility": "labelShow",
+                "messageListVisibility": "show",
+            },
+        )
+        .execute()
+    )
+    return new_label["id"]
 
-    while True:
-        try:
-            results = (
-                service.users()
-                .messages()
-                .list(
-                    userId="me",
-                    q=query,
-                    maxResults=500,  # Max allowed per page
-                    pageToken=page_token,
-                )
-                .execute()
-            )
 
-            emails.extend(results.get("messages", []))
-            page_token = results.get("nextPageToken")
+def search_emails(service, query, whitelist_phrases):
+    """Search for emails matching the query, excluding those with whitelist phrases."""
+    results = service.users().messages().list(userId="me", q=query).execute()
+    messages = results.get("messages", [])
+    email_ids = []
 
-            if not page_token:
-                break
-
-        except HttpError as error:
-            print(f"An error occurred: {error}")
-            break
-
-    return emails
+    for msg in messages:
+        email = (
+            service.users()
+            .messages()
+            .get(userId="me", id=msg["id"], format="full")
+            .execute()
+        )
+        snippet = email.get("snippet", "").lower()
+        if not any(phrase.lower() in snippet for phrase in whitelist_phrases):
+            email_ids.append({"id": msg["id"]})
+    return email_ids
 
 
 def delete_emails(service, email_ids):
-    """Batch delete emails with pagination and logging."""
+    """Delete the specified emails in batches."""
     if not email_ids:
         print("No emails to delete.")
         return
-
-    # Confirmation prompt
-    print(
-        f"WARNING: About to delete {len(email_ids)} emails. This action cannot be undone."
-    )
-    confirm = input("Type 'y' to proceed, or any other key to cancel: ").strip().lower()
-    if confirm != "y":
-        print("Deletion cancelled.")
-        return
-
-    # Process in batches of 1000
     batch_size = 1000
     total_deleted = 0
-
     for i in range(0, len(email_ids), batch_size):
         batch = email_ids[i : i + batch_size]
-
         try:
             service.users().messages().batchDelete(
                 userId="me", body={"ids": [msg["id"] for msg in batch]}
             ).execute()
-
             total_deleted += len(batch)
             print(f"Deleted {len(batch)} emails (total: {total_deleted})")
-
-            # Rate limiting: sleep between batches
             time.sleep(1)
-
         except HttpError as error:
             print(f"Error deleting batch: {error}")
-            # Optionally: retry or log failed batch
 
 
-def read_whitelist_file(file_path):
-    """Read whitelist phrases from a file, creating it with defaults if it doesn't exist."""
-    if not os.path.exists(file_path):
-        print(
-            f"Whitelist file '{file_path}' does not exist. Creating with default phrases."
-        )
+def archive_emails(service, email_ids):
+    """Archive the specified emails by removing the INBOX label in batches."""
+    if not email_ids:
+        print("No emails to archive.")
+        return
+    batch_size = 1000
+    total_archived = 0
+    for i in range(0, len(email_ids), batch_size):
+        batch = email_ids[i : i + batch_size]
         try:
-            with open(file_path, "w") as file:
-                default_phrases = ["important", "urgent", "keep this"]
-                file.write("\n".join(default_phrases) + "\n")
-            print(
-                f"Created '{file_path}' with default phrases: {', '.join(default_phrases)}"
-            )
-        except Exception as e:
-            print(f"Error creating whitelist file '{file_path}': {e}")
-            return []
-
-    try:
-        with open(file_path, "r") as file:
-            # Read lines, strip whitespace, and filter out empty lines
-            return [line.strip() for line in file if line.strip()]
-    except Exception as e:
-        print(f"Error reading whitelist file '{file_path}': {e}")
-        return []
+            service.users().messages().batchModify(
+                userId="me",
+                body={"ids": [msg["id"] for msg in batch], "removeLabelIds": ["INBOX"]},
+            ).execute()
+            total_archived += len(batch)
+            print(f"Archived {len(batch)} emails (total: {total_archived})")
+            time.sleep(1)
+        except HttpError as error:
+            print(f"Error archiving batch: {error}")
 
 
-def add_to_whitelist_file(file_path, new_phrases):
-    """Add new phrases to the whitelist file, avoiding duplicates."""
-    if not new_phrases:
+def move_to_label(service, email_ids, label_id):
+    """Move the specified emails to the given label by adding the label and removing INBOX in batches."""
+    if not email_ids:
+        print("No emails to move.")
         return
-
-    # Read existing phrases
-    existing_phrases = read_whitelist_file(file_path)
-
-    # Filter out duplicates (case-insensitive for comparison)
-    new_phrases = [phrase.strip() for phrase in new_phrases if phrase.strip()]
-    new_unique_phrases = [
-        phrase
-        for phrase in new_phrases
-        if phrase.lower() not in [p.lower() for p in existing_phrases]
-    ]
-
-    if not new_unique_phrases:
-        print("No new unique phrases to add to whitelist.")
-        return
-
-    try:
-        with open(file_path, "a") as file:
-            file.write("\n".join(new_unique_phrases) + "\n")
-        print(
-            f"Added {len(new_unique_phrases)} new phrases to '{file_path}': {', '.join(new_unique_phrases)}"
-        )
-    except Exception as e:
-        print(f"Error adding phrases to whitelist file '{file_path}': {e}")
-
-
-def main(search_string, whitelist_file, add_whitelist_phrases, remove_token):
-    """Main function to search and delete emails, with whitelist support from a file."""
-    # Remove token file if requested
-    if remove_token and os.path.exists(TOKEN_JSON):
+    batch_size = 1000
+    total_moved = 0
+    for i in range(0, len(email_ids), batch_size):
+        batch = email_ids[i : i + batch_size]
         try:
-            os.remove(TOKEN_JSON)
-            print(f"Removed token file '{TOKEN_JSON}'")
-        except Exception as e:
-            print(f"Error removing token file '{TOKEN_JSON}': {e}")
+            service.users().messages().batchModify(
+                userId="me",
+                body={
+                    "ids": [msg["id"] for msg in batch],
+                    "addLabelIds": [label_id],
+                    "removeLabelIds": ["INBOX"],
+                },
+            ).execute()
+            total_moved += len(batch)
+            print(f"Moved {len(batch)} emails to '{LABEL_NAME}' (total: {total_moved})")
+            time.sleep(1)
+        except HttpError as error:
+            print(f"Error moving batch: {error}")
 
-    # Add new phrases to whitelist file before reading it
-    add_to_whitelist_file(whitelist_file, add_whitelist_phrases)
 
-    # Read whitelist phrases from file
-    whitelist = read_whitelist_file(whitelist_file)
-    print(f"Loaded {len(whitelist)} whitelist phrases from '{whitelist_file}'")
+def main():
+    """Manage Gmail emails by deleting, archiving, or moving them to a 'to delete' label."""
+    parser = argparse.ArgumentParser(
+        description="Manage Gmail emails by deleting, archiving, or moving them to a 'to delete' label, excluding those containing whitelisted phrases from a file."
+    )
+    parser.add_argument("search_string", help="The string to search for in emails.")
+    parser.add_argument(
+        "--whitelist",
+        default="whitelist.txt",
+        help="Path to the file containing whitelisted phrases (default: whitelist.txt).",
+    )
+    parser.add_argument(
+        "--archive",
+        action="store_true",
+        help="If set, archive emails instead of deleting them.",
+    )
+    parser.add_argument(
+        "--move-to-delete",
+        action="store_true",
+        help="If set, move emails to the 'to delete' label instead of deleting or archiving.",
+    )
+    parser.add_argument(
+        "--permanently",
+        action="store_true",
+        help="If set, deletes email permanently. Use with caution!",
+    )
+    args = parser.parse_args()
 
-    # Prevent running with empty search_string
-    if not search_string:
-        print(
-            "Error: No search string provided. Please specify a search string to proceed."
-        )
-        print("Use --add-whitelist to add phrases without deleting emails.")
-        return
+    # Determine the action
+    if args.permanently:
+        action = "delete"
+    elif args.archive:
+        action = "archive"
+    else:
+        action = "move_to_delete"
 
-    # Safety check: prevent deletion if both search_string is empty and whitelist is empty
-    if not search_string and not whitelist:
-        print(
-            "Error: No search string or whitelist phrases provided. Aborting to prevent unintended deletions."
-        )
-        return
+    # Load whitelist phrases
+    whitelist_phrases = []
+    if os.path.exists(args.whitelist):
+        with open(args.whitelist, "r") as f:
+            whitelist_phrases = [line.strip() for line in f if line.strip()]
 
-    # Authenticate Gmail service
-    service = authenticate_gmail()
+    # Authenticate and get Gmail service
+    service = get_gmail_service()
 
-    # Construct the search query with whitelist exclusions
-    query = f'"{search_string}"'
-    if whitelist:
-        query += " " + " ".join([f'-"{phrase}"' for phrase in whitelist])
-    print(f"Using search query: {query}")
+    # If moving to delete, get or create the label
+    if action == "move_to_delete":
+        label_id = get_or_create_label(service, LABEL_NAME)
 
     # Search for emails
-    emails = search_emails(service, query)
-    print(f"Found {len(emails)} emails matching the search criteria")
+    print(f"Searching for emails containing '{args.search_string}'...")
+    emails = search_emails(service, args.search_string, whitelist_phrases)
 
     if emails:
-        # Delete the found emails
-        delete_emails(service, emails)
+        # Prompt for confirmation based on action
+        if action == "delete":
+            print(
+                f"WARNING: About to permanently delete {len(emails)} emails. This action cannot be undone."
+            )
+        elif action == "archive":
+            print(
+                f"About to archive {len(emails)} emails. They will be moved out of the inbox but can be found in 'All Mail'."
+            )
+        elif action == "move_to_delete":
+            print(
+                f"About to move {len(emails)} emails to the '{LABEL_NAME}' label. They will be removed from the inbox."
+            )
+
+        confirm = (
+            input("Type 'y' to proceed, or any other key to cancel: ").strip().lower()
+        )
+        if confirm == "y":
+            if action == "delete":
+                delete_emails(service, emails)
+            elif action == "archive":
+                archive_emails(service, emails)
+            elif action == "move_to_delete":
+                move_to_label(service, emails, label_id)
+        else:
+            print("Action cancelled.")
     else:
         print("No emails found matching the search criteria.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Delete Gmail emails containing a specific string, excluding those containing whitelisted phrases from a file."
-    )
-    parser.add_argument(
-        "search_string",
-        type=str,
-        nargs="?",
-        default="",
-        help="The string to search for in emails (required for deletion)",
-    )
-    parser.add_argument(
-        "--whitelist-file",
-        type=str,
-        default=WHITELIST_FILE,
-        help="Path to a text file containing whitelisted phrases, one per line (default: ~/.gmail-cleaner/whitelist.txt)",
-    )
-    parser.add_argument(
-        "--add-whitelist",
-        type=str,
-        action="append",
-        default=[],
-        help="Phrases to add to the whitelist file",
-    )
-    parser.add_argument(
-        "--remove-token",
-        action="store_true",
-        help="Remove the token.json file to force re-authentication",
-    )
-    args = parser.parse_args()
-    main(args.search_string, args.whitelist_file, args.add_whitelist, args.remove_token)
+    main()
