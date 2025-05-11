@@ -46,7 +46,7 @@ Once installed, you can use the `gmail-clean` alias to run the program:
   gmail-clean "search_string"
   ```
 
-  - This deletes emails containing `"search_string"`, excluding those with whitelisted phrases.
+  - This moves emails containing `"search_string"` to a label (folder) "to delete", excluding those with whitelisted phrases.
 
 - **Add Phrases to the Whitelist**:
 
@@ -103,10 +103,12 @@ keep this
 
 ## Remove Token
 
-If the Oauth token expires you may remove it with:
+After a while, your Oauth token may expoire. If it expires you may remove it with:
+
 ```bash 
 gmail-clean --remove-token
 ```
+run the script again to produce a new token.
 
 ## Important Considerations
 
