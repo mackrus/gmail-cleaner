@@ -100,6 +100,10 @@ urgent
 keep this
 ```
 
+## Remove Token
+
+If the Oauth token expires you may remove it with `gmail-clean --remove-token`.
+
 ## Important Considerations
 
 - **Permanent Deletion**: Deleted emails are permanently removed and cannot be recovered. Use this tool with caution.
