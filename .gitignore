@@ -42,3 +42,6 @@ scopetest.py
 
 # a new whietlist file will be generated
 whitelist.txt
+
+# ruff
+*.ruff*

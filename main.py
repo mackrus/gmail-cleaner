@@ -159,8 +159,16 @@ def add_to_whitelist_file(file_path, new_phrases):
         print(f"Error adding phrases to whitelist file '{file_path}': {e}")
 
 
-def main(search_string, whitelist_file, add_whitelist_phrases):
+def main(search_string, whitelist_file, add_whitelist_phrases, remove_token):
     """Main function to search and delete emails, with whitelist support from a file."""
+    # Remove token file if requested
+    if remove_token and os.path.exists(TOKEN_JSON):
+        try:
+            os.remove(TOKEN_JSON)
+            print(f"Removed token file '{TOKEN_JSON}'")
+        except Exception as e:
+            print(f"Error removing token file '{TOKEN_JSON}': {e}")
+
     # Add new phrases to whitelist file before reading it
     add_to_whitelist_file(whitelist_file, add_whitelist_phrases)
 
@@ -218,7 +226,7 @@ if __name__ == "__main__":
         "--whitelist-file",
         type=str,
         default=WHITELIST_FILE,
-        help="Path to a text file containing whitelisted phrases, one per line (default: ¨/.gmail-cleaner/whitelist.txt)",
+        help="Path to a text file containing whitelisted phrases, one per line (default: ~/.gmail-cleaner/whitelist.txt)",
     )
     parser.add_argument(
         "--add-whitelist",
@@ -227,5 +235,10 @@ if __name__ == "__main__":
         default=[],
         help="Phrases to add to the whitelist file",
     )
+    parser.add_argument(
+        "--remove-token",
+        action="store_true",
+        help="Remove the token.json file to force re-authentication",
+    )
     args = parser.parse_args()
-    main(args.search_string, args.whitelist_file, args.add_whitelist)
+    main(args.search_string, args.whitelist_file, args.add_whitelist, args.remove_token)
