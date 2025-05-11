@@ -159,7 +159,7 @@ def main():
     parser.add_argument(
         "--move-to-delete",
         action="store_true",
-        help="If set, move emails to the 'to delete' label instead of deleting or archiving.",
+        help="(default) If set, move emails to the 'to delete' label instead of deleting or archiving.",
     )
     parser.add_argument(
         "--permanently",
