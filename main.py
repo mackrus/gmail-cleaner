@@ -13,15 +13,22 @@ SCOPES = ["https://mail.google.com/"]
 # Constant for the label name
 LABEL_NAME = "to delete"
 
-# constant for credentials path
-CREDENTIALS_PATH = "~/.gmail-cleaner/credentials.json"
+# Constant for credentials path
+CONFIG_DIR = os.path.expanduser("~/.gmail-cleaner")
+CREDENTIALS_PATH = os.path.join(CONFIG_DIR, "credentials.json")
 
 
 def get_gmail_service():
     """Authenticate and return a Gmail API service instance."""
+    # Create directory if it doesn't exist
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+
     creds = None
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
+    token_path = os.path.join(
+        CONFIG_DIR, "token.pickle"
+    )  # Also use CONFIG_DIR for token
+    if os.path.exists(token_path):
+        with open(token_path, "rb") as token:
             creds = pickle.load(token)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -29,7 +36,7 @@ def get_gmail_service():
         else:
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
             creds = flow.run_local_server(port=0)
-        with open("token.pickle", "wb") as token:
+        with open(token_path, "wb") as token:
             pickle.dump(creds, token)
     return build("gmail", "v1", credentials=creds)
 
