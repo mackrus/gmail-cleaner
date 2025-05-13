@@ -65,22 +65,71 @@ def get_or_create_label(service, label_name):
     return new_label["id"]
 
 
+# def search_emails(service, query, whitelist_phrases):
+#     """Search for emails matching the query, excluding those with whitelist phrases."""
+#     results = service.users().messages().list(userId="me", q=query).execute()
+#     messages = results.get("messages", [])
+#     email_ids = []
+#
+#     for msg in messages:
+#         email = (
+#             service.users()
+#             .messages()
+#             .get(userId="me", id=msg["id"], format="full")
+#             .execute()
+#         )
+#         snippet = email.get("snippet", "").lower()
+#         if not any(phrase.lower() in snippet for phrase in whitelist_phrases):
+#             email_ids.append({"id": msg["id"]})
+#     return email_ids
+
+# def search_emails(service, query, whitelist_phrases):
+#     email_ids = []
+#     page_token = None
+#     while True:
+#         results = service.users().messages().list(
+#             userId="me",
+#             q=query,
+#             maxResults=500,  # Fetch up to 500 emails per page
+#             pageToken=page_token
+#         ).execute()
+#         messages = results.get("messages", [])
+#         for msg in messages:
+#             email = service.users().messages().get(userId="me", id=msg["id"], format="full").execute()
+#             snippet = email.get("snippet", "").lower()
+#             if not any(phrase.lower() in snippet for phrase in whitelist_phrases):
+#                 email_ids.append({"id": msg["id"]})
+#         page_token = results.get("nextPageToken")
+#         if not page_token:
+#             break
+#     return email_ids
+
+
 def search_emails(service, query, whitelist_phrases):
     """Search for emails matching the query, excluding those with whitelist phrases."""
-    results = service.users().messages().list(userId="me", q=query).execute()
-    messages = results.get("messages", [])
     email_ids = []
-
-    for msg in messages:
-        email = (
+    page_token = None
+    while True:
+        results = (
             service.users()
             .messages()
-            .get(userId="me", id=msg["id"], format="full")
+            .list(
+                userId="me",
+                q=query,
+                maxResults=500,
+                pageToken=page_token,
+                fields="messages(id,snippet),nextPageToken",
+            )
             .execute()
         )
-        snippet = email.get("snippet", "").lower()
-        if not any(phrase.lower() in snippet for phrase in whitelist_phrases):
-            email_ids.append({"id": msg["id"]})
+        messages = results.get("messages", [])
+        for msg in messages:
+            snippet = msg.get("snippet", "").lower()
+            if not any(phrase.lower() in snippet for phrase in whitelist_phrases):
+                email_ids.append({"id": msg["id"]})
+        page_token = results.get("nextPageToken")
+        if not page_token:
+            break
     return email_ids
 
 
