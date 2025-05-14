@@ -65,46 +65,6 @@ def get_or_create_label(service, label_name):
     return new_label["id"]
 
 
-# def search_emails(service, query, whitelist_phrases):
-#     """Search for emails matching the query, excluding those with whitelist phrases."""
-#     results = service.users().messages().list(userId="me", q=query).execute()
-#     messages = results.get("messages", [])
-#     email_ids = []
-#
-#     for msg in messages:
-#         email = (
-#             service.users()
-#             .messages()
-#             .get(userId="me", id=msg["id"], format="full")
-#             .execute()
-#         )
-#         snippet = email.get("snippet", "").lower()
-#         if not any(phrase.lower() in snippet for phrase in whitelist_phrases):
-#             email_ids.append({"id": msg["id"]})
-#     return email_ids
-
-# def search_emails(service, query, whitelist_phrases):
-#     email_ids = []
-#     page_token = None
-#     while True:
-#         results = service.users().messages().list(
-#             userId="me",
-#             q=query,
-#             maxResults=500,  # Fetch up to 500 emails per page
-#             pageToken=page_token
-#         ).execute()
-#         messages = results.get("messages", [])
-#         for msg in messages:
-#             email = service.users().messages().get(userId="me", id=msg["id"], format="full").execute()
-#             snippet = email.get("snippet", "").lower()
-#             if not any(phrase.lower() in snippet for phrase in whitelist_phrases):
-#                 email_ids.append({"id": msg["id"]})
-#         page_token = results.get("nextPageToken")
-#         if not page_token:
-#             break
-#     return email_ids
-
-
 def search_emails(service, query, whitelist_phrases):
     """Search for emails matching the query, excluding those with whitelist phrases."""
     email_ids = []
@@ -199,18 +159,54 @@ def move_to_label(service, email_ids, label_id):
             print(f"Error moving batch: {error}")
 
 
+def clean_move_to_label(service, whitelist_phrases):
+    """
+    Delete emails from the 'to delete' label, excluding those containing whitelist phrases.
+    """
+    # Search for emails with the 'to delete' label
+    query = "label:to delete"
+    print("Searching for emails with label 'to delete'...")
+    email_ids = search_emails(service, query, whitelist_phrases)
+
+    # Check if there are emails to delete
+    if not email_ids:
+        print("No emails found in 'to delete' label matching the criteria.")
+        return
+
+    # Prompt for confirmation
+    print(
+        f"WARNING: About to permanently delete {len(email_ids)} emails from 'to delete' label."
+    )
+    confirm = (
+        input("Type 'yes' to proceed, or any other key to cancel: ").strip().lower()
+    )
+    if confirm != "yes":
+        print("Deletion cancelled.")
+        return
+
+    # Delete the emails
+    delete_emails(service, email_ids)
+
+
 def main():
     """Manage Gmail emails by deleting, archiving, or moving them to a 'to delete' label."""
     parser = argparse.ArgumentParser(
         description="Manage Gmail emails by deleting, archiving, or moving them to a 'to delete' label, excluding those containing whitelisted phrases from a file."
     )
-    parser.add_argument("search_string", help="The string to search for in emails.")
     parser.add_argument(
+        "search_query",
+        nargs="?",
+        default=None,
+        help="The Gmail search query to find emails to delete or move.",
+    )
+    parser.add_argument(
+        "-w",
         "--whitelist",
         default="whitelist.txt",
         help="Path to the file containing whitelisted phrases (default: whitelist.txt).",
     )
     parser.add_argument(
+        "-a",
         "--archive",
         action="store_true",
         help="If set, archive emails instead of deleting them.",
@@ -221,17 +217,28 @@ def main():
         help="(default) If set, move emails to the 'to delete' label instead of deleting or archiving.",
     )
     parser.add_argument(
+        "-p",
         "--permanently",
         action="store_true",
         help="If set, deletes email permanently. Use with caution!",
     )
+    parser.add_argument(
+        "-c",
+        "--clean",
+        action="store_true",
+        help="If set, moves all emails in 'to delete' to be deleted permanently. Use with caution!",
+    )
     args = parser.parse_args()
 
+    if not args.clean and args.search_query is None:
+        parser.error("search_query is required unless --clean-to-delete is used.")
     # Determine the action
     if args.permanently:
         action = "delete"
     elif args.archive:
         action = "archive"
+    elif args.clean:
+        action = "clean"
     else:
         action = "move_to_delete"
 
@@ -266,6 +273,10 @@ def main():
             print(
                 f"About to move {len(emails)} emails to the '{LABEL_NAME}' label. They will be removed from the inbox."
             )
+        if action == "clean":
+            print(
+                f"WARNING: About to permanently delete {len(emails)} emails from the 'to delete' folder. This action cannot be undone."
+            )
 
         confirm = (
             input("Type 'y' to proceed, or any other key to cancel: ").strip().lower()
@@ -277,6 +288,9 @@ def main():
                 archive_emails(service, emails)
             elif action == "move_to_delete":
                 move_to_label(service, emails, label_id)
+            elif action == "clean":
+                clean_move_to_label(service, whitelist_phrases)
+
         else:
             print("Action cancelled.")
     else:
