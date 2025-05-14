@@ -16,6 +16,7 @@ LABEL_NAME = "to delete"
 # Constant for credentials path
 CONFIG_DIR = os.path.expanduser("~/.gmail-cleaner")
 CREDENTIALS_PATH = os.path.join(CONFIG_DIR, "credentials.json")
+TOKEN_PATH = os.path.join(CONFIG_DIR, "token.pickle")
 
 
 def get_gmail_service():
@@ -188,6 +189,18 @@ def clean_move_to_label(service, whitelist_phrases):
     delete_emails(service, email_ids)
 
 
+def remove_token():
+    """Remove the OAuth token file to force re-authentication."""
+    if os.path.exists(TOKEN_PATH):
+        try:
+            os.remove(TOKEN_PATH)
+            print(f"Successfully removed OAuth token file: {TOKEN_PATH}")
+        except Exception as e:
+            print(f"Error removing OAuth token file: {e}")
+    else:
+        print(f"No OAuth token file found at: {TOKEN_PATH}")
+
+
 def main():
     """Manage Gmail emails by deleting, archiving, or moving them to a 'to delete' label."""
     parser = argparse.ArgumentParser(
@@ -228,10 +241,19 @@ def main():
         action="store_true",
         help="If set, moves all emails in 'to delete' to be deleted permanently. Use with caution!",
     )
+    parser.add_argument(
+        "-r",
+        "--remove-token",
+        action="store_true",
+        help="If set, removes the OAuth token file to force re-authentication.",
+    )
     args = parser.parse_args()
 
-    if not args.clean and args.search_query is None:
-        parser.error("search_query is required unless --clean-to-delete is used.")
+    # Handle remove-token action
+    if args.remove_token:
+        remove_token()
+        return
+
     # Determine the action
     if args.permanently:
         action = "delete"
@@ -239,8 +261,16 @@ def main():
         action = "archive"
     elif args.clean:
         action = "clean"
-    else:
+    elif args.move_to_delete:
         action = "move_to_delete"
+    else:
+        action = "move_to_delete"  # Default action
+
+    # For actions other than clean, require search_query
+    if action != "clean" and args.search_query is None:
+        parser.error(
+            "search_query is required unless --clean or --remove-token is used."
+        )
 
     # Load whitelist phrases
     whitelist_phrases = []
