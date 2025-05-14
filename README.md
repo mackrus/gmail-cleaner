@@ -38,35 +38,81 @@ Gmail Cleaner is a command-line tool that helps you manage your Gmail inbox by d
 
 ## Usage
 
-Once installed, you can use the `gmail-clean` alias to run the program:
+The `gmail-clean` program helps you manage your Gmail emails by searching for emails based on a query and performing actions like moving them to a 'to delete' label, archiving them, or permanently deleting them. You can also clean the 'to delete' label by deleting its contents. All actions respect a **whitelist** of phrases, excluding emails containing those phrases in their snippets from being affected.
 
-- **Delete Emails Containing a Search String**:
+### Available Actions
+
+- **Move Emails to 'to delete' Label** (default action):
 
   ```bash
   gmail-clean "search_string"
   ```
 
-  - This moves emails containing `"search_string"` to a label (folder) "to delete", excluding those with whitelisted phrases.
+  - Moves emails containing `"search_string"` to the 'to delete' label, excluding those with whitelisted phrases.
 
-- **Add Phrases to the Whitelist**:
+- **Archive Emails**:
 
   ```bash
-  gmail-clean --add-whitelist "important phrase"
+  gmail-clean "search_string" -a
   ```
 
-  - This adds `"important phrase"` to `~/.gmail-cleaner/whitelist.txt`.
+  - Archives emails containing `"search_string"`, excluding those with whitelisted phrases.
+
+- **Permanently Delete Emails**:
+
+  ```bash
+  gmail-clean "search_string" -p
+  ```
+
+  - Permanently deletes emails containing `"search_string"`, excluding those with whitelisted phrases. **Use with caution!**
+
+- **Clean the 'to delete' Label**:
+
+  ```bash
+  gmail-clean -c
+  ```
+
+  - Permanently deletes all emails in the 'to delete' label, excluding those with whitelisted phrases. **Use with caution!**
+
+### Options
 
 - **Specify a Custom Whitelist File**:
 
   ```bash
-  gmail-clean "search_string" --whitelist-file "/path/to/custom_whitelist.txt"
+  gmail-clean "search_string" -w /path/to/custom_whitelist.txt
   ```
 
-- **Run Without Deleting (Just Add to Whitelist)**:
+  - Uses the specified whitelist file instead of the default.
+
+- **Dry Run**:
 
   ```bash
-  gmail-clean --add-whitelist "new phrase"
+  gmail-clean "search_string" -d
   ```
+
+  - Simulates the action without modifying emails, ideal for testing.
+
+### Confirmation Prompts
+
+For actions that modify emails (e.g., moving, archiving, or deleting), the program prompts for confirmation. You must type `'y'` to proceed with the action.
+
+### Whitelist Management
+
+The whitelist is a text file where each line is a phrase. Emails with these phrases in their snippets are excluded from all actions.
+
+- **Default Location**: `~/.gmail-cleaner/whitelist.txt`
+
+- **Default Phrases**: If the file doesn’t exist, it’s created with `"important"`, `"urgent"`, and `"keep this"`.
+
+- **Editing the Whitelist**: Manually edit the file with a text editor to add or remove phrases.
+
+  **Example - Adding a Phrase**:
+
+  1. Open `~/.gmail-cleaner/whitelist.txt` in a text editor.
+  2. Add a new phrase (e.g., `"important phrase"`) on a new line.
+  3. Save the file.
+
+  **Example - Removing a Phrase**: Delete the corresponding line from the file.
 
 ### First Run
 
