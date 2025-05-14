@@ -84,13 +84,6 @@ The `gmail-clean` program helps you manage your Gmail emails by searching for em
 
   - Uses the specified whitelist file instead of the default.
 
-- **Dry Run**:
-
-  ```bash
-  gmail-clean "search_string" -d
-  ```
-
-  - Simulates the action without modifying emails, ideal for testing.
 
 ### Confirmation Prompts
 
@@ -149,7 +142,7 @@ keep this
 
 ## Remove Token
 
-After a while, your Oauth token may expoire. If it expires you may remove it with:
+After a while, your Oauth token may expire. If it expires you may remove it with:
 
 ```bash 
 gmail-clean --remove-token
