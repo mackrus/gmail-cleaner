@@ -178,10 +178,8 @@ def clean_move_to_label(service, whitelist_phrases):
     print(
         f"WARNING: About to permanently delete {len(email_ids)} emails from 'to delete' label."
     )
-    confirm = (
-        input("Type 'yes' to proceed, or any other key to cancel: ").strip().lower()
-    )
-    if confirm != "yes":
+    confirm = input("Type 'y' to proceed, or any other key to cancel: ").strip().lower()
+    if confirm != "y":
         print("Deletion cancelled.")
         return
 
@@ -286,8 +284,8 @@ def main():
         label_id = get_or_create_label(service, LABEL_NAME)
 
     # Search for emails
-    print(f"Searching for emails containing '{args.search_string}'...")
-    emails = search_emails(service, args.search_string, whitelist_phrases)
+    print(f"Searching for emails containing '{args.search_query}'...")
+    emails = search_emails(service, args.search_query, whitelist_phrases)
 
     if emails:
         # Prompt for confirmation based on action
