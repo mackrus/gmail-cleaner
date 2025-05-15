@@ -284,7 +284,9 @@ def main():
         label_id = get_or_create_label(service, LABEL_NAME)
 
     # Search for emails
-    print(f"Searching for emails containing '{args.search_query}'...")
+    if args.search_query is not None:
+        print(f"Searching for emails containing '{args.search_query}'...")
+
     emails = search_emails(service, args.search_query, whitelist_phrases)
 
     if emails:
@@ -302,9 +304,11 @@ def main():
                 f"About to move {len(emails)} emails to the '{LABEL_NAME}' label. They will be removed from the inbox."
             )
         if action == "clean":
-            print(
-                f"WARNING: About to permanently delete {len(emails)} emails from the 'to delete' folder. This action cannot be undone."
-            )
+            # print(
+            #     f"WARNING: About to permanently delete {len(emails)} emails from the 'to delete' folder. This action cannot be undone."
+            # )
+            clean_move_to_label(service, whitelist_phrases)
+            return
 
         confirm = (
             input("Type 'y' to proceed, or any other key to cancel: ").strip().lower()
