@@ -140,12 +140,19 @@ function Main {
 
     # Set up function in PowerShell profile
     $aliasDef = "function gmail-clean { & '$venvPython' '$INSTALL_DIR/main.py' @args }"
-    if (-not (Test-Path $PROFILE)) {
-        New-Item -Path $PROFILE -ItemType File -Force | Out-Null
-    }
-    if (-not (Select-String -Path $PROFILE -Pattern "function gmail-clean" -Quiet)) {
-        Add-Content -Path $PROFILE -Value $aliasDef
-        Print-Msg "Function added to $PROFILE. Please run '. $PROFILE' or restart PowerShell to load it."
+    
+    if (-not (Select-String -Path $PROFILE -Pattern "function gmail-clean" -Quiet -ErrorAction SilentlyContinue)) {
+        $response = Read-Host "[?] Would you like to add the 'gmail-clean' function to your PowerShell profile ($PROFILE)? (y/N)"
+        if ($response -match "^[yY](es)?$") {
+            if (-not (Test-Path $PROFILE)) {
+                New-Item -Path $PROFILE -ItemType File -Force | Out-Null
+            }
+            Add-Content -Path $PROFILE -Value "`n$aliasDef"
+            Print-Msg "Function added to $PROFILE. Please run '. $PROFILE' or restart PowerShell to load it."
+        } else {
+            Print-Msg "Skipping function addition. You can add it manually to your profile:" -color $YELLOW
+            Print-Msg $aliasDef -color $YELLOW
+        }
     } else {
         Print-Msg "Function already exists in $PROFILE."
     }

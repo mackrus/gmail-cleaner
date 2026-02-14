@@ -95,16 +95,25 @@ main() {
         SHELL_RC_FILE="$HOME/.bashrc"
     fi
 
+    ALIAS_CMD="alias gmail-clean='$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/main.py'"
+
     if [ -n "$SHELL_RC_FILE" ]; then
         if ! grep -q "alias gmail-clean=" "$SHELL_RC_FILE"; then
-            echo "alias gmail-clean='$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/main.py'" >> "$SHELL_RC_FILE"
-            print_msg "Alias added to $SHELL_RC_FILE. Please run 'source $SHELL_RC_FILE' or restart your shell."
+            echo -e "${YELLOW}[?] Would you like to add the 'gmail-clean' alias to $SHELL_RC_FILE? (y/N): ${NC}\c"
+            read -r response
+            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+                echo "$ALIAS_CMD" >> "$SHELL_RC_FILE"
+                print_msg "Alias added to $SHELL_RC_FILE. Please run 'source $SHELL_RC_FILE' or restart your shell."
+            else
+                print_msg "Skipping alias addition. You can add it manually:" "$YELLOW"
+                print_msg "$ALIAS_CMD"
+            fi
         else
             print_msg "Alias already exists in $SHELL_RC_FILE."
         fi
     else
         print_msg "No .zshrc or .bashrc found. Please add the following alias manually:" "$YELLOW"
-        print_msg "alias gmail-clean='$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/main.py'"
+        print_msg "$ALIAS_CMD"
     fi
 
     # Remind user about credentials.json

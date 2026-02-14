@@ -8,7 +8,7 @@ import os
 import pickle
 
 # If modifying these scopes, delete the file token.pickle.
-SCOPES = ["https://mail.google.com/"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 # Constant for the label name
 LABEL_NAME = "to delete"

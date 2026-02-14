@@ -36,7 +36,7 @@ To use this tool, you need to set up Gmail API credentials in the Google Cloud C
 
 7. **Authenticate**:
    - Run the tool (e.g., `gmail-clean "test search"`).
-   - A browser will open; log in, approve the permissions (including full Gmail access), and bypass the "unverified app" warning if needed.
-   - The tool will save a `token.json` file in `~/.gmail-cleaner/` for future use.
+   - A browser will open; log in, approve the requested permissions, and bypass the "unverified app" warning if needed.
+   - The tool will save a `token.pickle` file in `~/.gmail-cleaner/` for future use.
 
-The tool requests the scopes `https://www.googleapis.com/auth/gmail.modify` and `https://mail.google.com/` for modifying and deleting emails. These are automatically handled during authentication.
+The tool requests the scope `https://www.googleapis.com/auth/gmail.modify` which allows it to read, search, label, archive, and delete emails. It does **not** grant full access to your Google Account or the ability to manage your account settings.
