@@ -68,24 +68,21 @@ install_python() {
 main() {
     INSTALL_DIR="$HOME/.gmail-cleaner"
 
-    # Check and install Python 3
-    install_python
+    # Check for uv
+    if ! command_exists uv; then
+        print_msg "uv is not installed. Installing via curl..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+    else
+        print_msg "uv is already installed."
+    fi
 
     # Create installation directory
     print_msg "Creating directory $INSTALL_DIR"
     mkdir -p "$INSTALL_DIR"
 
-    # Copy main.py and requirements.txt to INSTALL_DIR
-    print_msg "Copying main.py and requirements.txt to $INSTALL_DIR"
-    cp main.py requirements.txt "$INSTALL_DIR" || print_error "Failed to copy files. Ensure main.py and requirements.txt are in the current directory."
-
-    # Create virtual environment
-    print_msg "Creating virtual environment at $INSTALL_DIR/.venv"
-    python3 -m venv "$INSTALL_DIR/.venv" || print_error "Failed to create virtual environment."
-
-    # Install dependencies in the virtual environment
-    print_msg "Installing dependencies from requirements.txt"
-    "$INSTALL_DIR/.venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" || print_error "Failed to install dependencies."
+    # Copy files to INSTALL_DIR
+    print_msg "Copying files to $INSTALL_DIR"
+    cp main.py requirements.txt pyproject.toml "$INSTALL_DIR" || print_error "Failed to copy files. Ensure main.py, requirements.txt, and pyproject.toml are in the current directory."
 
     # Set up alias in shell configuration file
     SHELL_RC_FILE=""
@@ -95,7 +92,7 @@ main() {
         SHELL_RC_FILE="$HOME/.bashrc"
     fi
 
-    ALIAS_CMD="alias gmail-clean='$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/main.py'"
+    ALIAS_CMD="alias gmail-clean='uv run --project $INSTALL_DIR $INSTALL_DIR/main.py'"
 
     if [ -n "$SHELL_RC_FILE" ]; then
         if ! grep -q "alias gmail-clean=" "$SHELL_RC_FILE"; then
@@ -109,12 +106,18 @@ main() {
                 print_msg "$ALIAS_CMD"
             fi
         else
-            print_msg "Alias already exists in $SHELL_RC_FILE."
+            # Update the existing alias
+            sed -i '' "s|alias gmail-clean=.*|alias gmail-clean='uv run --project $INSTALL_DIR $INSTALL_DIR/main.py'|" "$SHELL_RC_FILE"
+            print_msg "Alias updated in $SHELL_RC_FILE."
         fi
     else
         print_msg "No .zshrc or .bashrc found. Please add the following alias manually:" "$YELLOW"
         print_msg "$ALIAS_CMD"
     fi
+
+    # Sync dependencies with uv
+    print_msg "Syncing dependencies with uv..."
+    (cd "$INSTALL_DIR" && uv sync)
 
     # Remind user about credentials.json
     print_msg "Please place your credentials.json file in $INSTALL_DIR" "$YELLOW"

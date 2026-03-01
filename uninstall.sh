@@ -22,8 +22,7 @@ print_error() {
 # Main uninstallation function
 main() {
     INSTALL_DIR="$HOME/.gmail-cleaner"
-    ALIAS_LINE="alias gmail-clean='$INSTALL_DIR/.venv/bin/python $INSTALL_DIR/main.py'"
-
+    
     # Check if the installation directory exists
     if [ ! -d "$INSTALL_DIR" ]; then
         print_msg "No installation found at $INSTALL_DIR. Nothing to uninstall." "$YELLOW"
@@ -31,9 +30,10 @@ main() {
     fi
 
     # Prompt user for confirmation
-    print_msg "WARNING: This will delete the entire directory $INSTALL_DIR and all its contents, including any custom files." "$YELLOW"
-    read -p "Are you sure you want to uninstall and delete all data? (y/n): " confirm
-    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}[!] WARNING: This will delete the entire directory $INSTALL_DIR and all its contents, including any custom files.${NC}"
+    echo -e "${YELLOW}[?] Are you sure you want to uninstall and delete all data? (y/N): ${NC}\c"
+    read -r confirm
+    if [[ ! "$confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         print_msg "Uninstallation cancelled."
         exit 0
     fi
@@ -46,9 +46,14 @@ main() {
     SHELL_RC_FILES=("$HOME/.zshrc" "$HOME/.bashrc")
     for rc_file in "${SHELL_RC_FILES[@]}"; do
         if [ -f "$rc_file" ]; then
-            if grep -q "$ALIAS_LINE" "$rc_file"; then
+            if grep -q "alias gmail-clean=" "$rc_file"; then
                 print_msg "Removing alias from $rc_file..."
-                sed -i "\|$ALIAS_LINE|d" "$rc_file" || print_error "Failed to remove alias from $rc_file."
+                # Use a more flexible sed pattern to remove any alias gmail-clean=...
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "/alias gmail-clean=/d" "$rc_file"
+                else
+                    sed -i "/alias gmail-clean=/d" "$rc_file"
+                fi
             else
                 print_msg "Alias not found in $rc_file."
             fi
